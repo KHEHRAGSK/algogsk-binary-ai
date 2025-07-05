@@ -17,7 +17,22 @@ SYMBOLS = {
     "USD/CAD (OTC)": "USDCAD=X",
     "BTC/USD (OTC)": "BTC-USD",
     "ETH/USD (OTC)": "ETH-USD"
+}SYMBOLS = {
+    "EUR/USD (OTC)": "EURUSD=X",
+    "GBP/USD (OTC)": "GBPUSD=X",
+    "USD/JPY (OTC)": "USDJPY=X",
+    "AUD/USD (OTC)": "AUDUSD=X",
+    "USD/CHF (OTC)": "USDCHF=X",
+    "NZD/USD (OTC)": "NZDUSD=X",
+    "USD/CAD (OTC)": "USDCAD=X",
+    "BTC/USD (OTC)": "BTC-USD",
+    "ETH/USD (OTC)": "ETH-USD",
+    "GBP/JPY (OTC)": "GBPJPY=X",
+    "EUR/JPY (OTC)": "EURJPY=X",
+    "AUD/JPY (OTC)": "AUDJPY=X",
+    "CHF/JPY (OTC)": "CHFJPY=X"
 }
+
 
 EXPIRIES = {"1m": 1, "3m": 3, "5m": 5}
 LOOKBACK = 30
