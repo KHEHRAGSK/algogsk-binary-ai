@@ -2,5 +2,6 @@ streamlit
 yfinance
 pandas
 numpy
-tensorflow-cpu
+tensorflow==2.12.0
+
 
