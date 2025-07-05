@@ -2,11 +2,12 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+from sklearn.ensemble import RandomForestClassifier
 
 st.set_page_config(page_title="ALGOGSK Binary AI Signal", layout="centered")
+st.title("📡 ALGOGSK Binary AI Signal Generator")
 
+# --- Config
 LOOKBACK = 60
 EXPIRIES = {"1m": 1, "3m": 3, "5m": 5}
 SYMBOLS = {
@@ -16,6 +17,7 @@ SYMBOLS = {
     "GBP/JPY": "GBPJPY=X", "AUD/JPY": "AUDJPY=X", "CHF/JPY": "CHFJPY=X"
 }
 
+# --- Functions
 def load_data(symbol, period="2d", interval="1m"):
     try:
         df = yf.download(symbol, period=period, interval=interval).dropna()
@@ -29,51 +31,39 @@ def make_features(df):
     df["ma5"] = df["Close"].rolling(5).mean()
     df["ma20"] = df["Close"].rolling(20).mean()
     df["rsi"] = (100 - (100 / (1 + df["return"].rolling(14).mean() / df["return"].rolling(14).std()))).fillna(50)
-    return df.dropna()
-
-def build_model(input_shape):
-    model = Sequential([
-        LSTM(32, input_shape=input_shape),
-        Dense(16, activation="relu"),
-        Dense(1, activation="sigmoid")
-    ])
-    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["accuracy"])
-    return model
+    df = df.dropna()
+    return df
 
 def prepare_data(df, expiry_candles):
     X, y = [], []
     for i in range(LOOKBACK, len(df) - expiry_candles):
-        X.append(df.iloc[i - LOOKBACK:i][["return", "ma5", "ma20", "rsi"]].values)
+        X.append(df.iloc[i - LOOKBACK:i][["return", "ma5", "ma20", "rsi"]].values.flatten())
         future_move = df["Close"].iloc[i + expiry_candles] > df["Close"].iloc[i]
         y.append(int(future_move))
     return np.array(X), np.array(y)
 
 def predict_signal(symbol, expiry_str):
     df = load_data(symbol)
-    if df is None or len(df) < 80:
+    if df is None or len(df) < 100:
         return None, "Not enough data"
     df = make_features(df)
     X, y = prepare_data(df, EXPIRIES[expiry_str])
-    if len(X) < 1:
-        return None, "Insufficient history"
-    model = build_model((LOOKBACK, 4))
-    model.fit(X, y, epochs=3, batch_size=32, verbose=0)
-    pred = model.predict(X[-1].reshape(1, LOOKBACK, 4))[0][0]
-    signal = "CALL 🔼" if pred > 0.5 else "PUT 🔽"
-    conf = round(pred*100 if pred > 0.5 else (1 - pred)*100, 2)
-    return signal, conf
+    if len(X) < 10:
+        return None, "Insufficient training data"
+    model = RandomForestClassifier(n_estimators=50)
+    model.fit(X, y)
+    prob = model.predict_proba(X[-1].reshape(1, -1))[0][1]
+    signal = "CALL 🔼" if prob > 0.5 else "PUT 🔽"
+    confidence = round(prob * 100 if prob > 0.5 else (1 - prob) * 100, 2)
+    return signal, confidence
 
-
-st.set_page_config(page_title="ALGOGSK Binary AI Signal Generator", layout="centered")
-st.title("📡 ALGOGSK Binary AI Signal Generator")
-
+# --- UI
 pair = st.selectbox("Select Currency Pair", list(SYMBOLS.keys()))
 expiry = st.selectbox("Select Expiry", list(EXPIRIES.keys()))
-
-if st.button("Generate Signal"):
-    with st.spinner("Analyzing market..."):
+if st.button("🧠 Generate AI Signal"):
+    with st.spinner("Analyzing with AI..."):
         signal, result = predict_signal(SYMBOLS[pair], expiry)
         if signal is None:
             st.error(result)
         else:
-            st.success(f"**Signal: {signal}**\nConfidence: **{result}%**\nExpiry: **{expiry}**")
+            st.success(f"**Signal: {signal}**\n\n**Confidence:** `{result}%`\n\n**Expiry:** `{expiry}`")
