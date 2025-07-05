@@ -63,7 +63,10 @@ def predict_signal(symbol, expiry_str):
     conf = round(pred*100 if pred > 0.5 else (1 - pred)*100, 2)
     return signal, conf
 
+
+st.set_page_config(page_title="ALGOGSK Binary AI Signal Generator", layout="centered")
 st.title("📡 ALGOGSK Binary AI Signal Generator")
+
 pair = st.selectbox("Select Currency Pair", list(SYMBOLS.keys()))
 expiry = st.selectbox("Select Expiry", list(EXPIRIES.keys()))
 
