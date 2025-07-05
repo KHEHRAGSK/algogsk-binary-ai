@@ -2,7 +2,8 @@ streamlit
 yfinance
 pandas
 numpy
-tensorflow<2.13  # 👈 ensures compatibility with Streamlit's Python version
+scikit-learn
+
 
 
 
