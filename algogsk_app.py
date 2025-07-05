@@ -4,66 +4,64 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 
-st.set_page_config(page_title="ALGOGSK Binary AI Signal", layout="centered")
-st.title("📡 ALGOGSK Binary AI Signal Generator")
+st.set_page_config(page_title="KHEHRAGSK AI Signal", layout="centered")
 
-# --- Config
-LOOKBACK = 60
-EXPIRIES = {"1m": 1, "3m": 3, "5m": 5}
+# --- Symbol List with OTC Pairs (You can expand more later)
 SYMBOLS = {
-    "EUR/USD": "EURUSD=X", "GBP/USD": "GBPUSD=X", "USD/JPY": "USDJPY=X",
-    "USD/CHF": "USDCHF=X", "USD/CAD": "USDCAD=X", "AUD/USD": "AUDUSD=X",
-    "NZD/USD": "NZDUSD=X", "EUR/GBP": "EURGBP=X", "EUR/JPY": "EURJPY=X",
-    "GBP/JPY": "GBPJPY=X", "AUD/JPY": "AUDJPY=X", "CHF/JPY": "CHFJPY=X"
+    "EUR/USD (OTC)": "EURUSD=X",
+    "GBP/USD (OTC)": "GBPUSD=X",
+    "USD/JPY (OTC)": "USDJPY=X",
+    "AUD/USD (OTC)": "AUDUSD=X",
+    "USD/CHF (OTC)": "USDCHF=X",
+    "NZD/USD (OTC)": "NZDUSD=X",
+    "USD/CAD (OTC)": "USDCAD=X",
+    "BTC/USD (OTC)": "BTC-USD",
+    "ETH/USD (OTC)": "ETH-USD"
 }
 
-# --- Functions
-def load_data(symbol, period="2d", interval="1m"):
-    try:
-        df = yf.download(symbol, period=period, interval=interval).dropna()
-        return df
-    except Exception as e:
-        st.error(f"Failed to load data: {e}")
-        return None
+EXPIRIES = {"1m": 1, "3m": 3, "5m": 5}
+LOOKBACK = 30
 
-def make_features(df):
+# --- Load & Prepare Data
+def load_data(symbol):
+    df = yf.download(symbol, period="2d", interval="1m").dropna()
     df["return"] = df["Close"].pct_change().fillna(0)
-    df["ma5"] = df["Close"].rolling(5).mean()
-    df["ma20"] = df["Close"].rolling(20).mean()
-    df["rsi"] = (100 - (100 / (1 + df["return"].rolling(14).mean() / df["return"].rolling(14).std()))).fillna(50)
-    df = df.dropna()
+    df["ma5"] = df["Close"].rolling(5).mean().fillna(method="bfill")
+    df["ma20"] = df["Close"].rolling(20).mean().fillna(method="bfill")
     return df
 
-def prepare_data(df, expiry_candles):
+def prepare_data(df, expiry):
     X, y = [], []
-    for i in range(LOOKBACK, len(df) - expiry_candles):
-        X.append(df.iloc[i - LOOKBACK:i][["return", "ma5", "ma20", "rsi"]].values.flatten())
-        future_move = df["Close"].iloc[i + expiry_candles] > df["Close"].iloc[i]
-        y.append(int(future_move))
+    for i in range(LOOKBACK, len(df) - expiry):
+        features = df.iloc[i - LOOKBACK:i][["return", "ma5", "ma20"]].values
+        label = int(df["Close"].iloc[i + expiry] > df["Close"].iloc[i])
+        X.append(features)
+        y.append(label)
     return np.array(X), np.array(y)
 
-def predict_signal(symbol, expiry_str):
-    df = load_data(symbol)
-    if df is None or len(df) < 100:
-        return None, "Not enough data"
-    df = make_features(df)
-    X, y = prepare_data(df, EXPIRIES[expiry_str])
-    if len(X) < 10:
-        return None, "Insufficient training data"
-    model = RandomForestClassifier(n_estimators=50)
-    model.fit(X, y)
-    prob = model.predict_proba(X[-1].reshape(1, -1))[0][1]
-    signal = "CALL 🔼" if prob > 0.5 else "PUT 🔽"
-    confidence = round(prob * 100 if prob > 0.5 else (1 - prob) * 100, 2)
-    return signal, confidence
+# --- Streamlit UI
+st.title("📡 KHEHRAGSK Binary AI Signal")
+pair = st.selectbox("Select OTC Pair", list(SYMBOLS.keys()))
+expiry = st.selectbox("Expiry Time", list(EXPIRIES.keys()))
 
-# --- UI
-pair = st.selectbox("Select Currency Pair", list(SYMBOLS.keys()))
-expiry = st.selectbox("Select Expiry", list(EXPIRIES.keys()))
-if st.button("🧠 Generate AI Signal"):
-    with st.spinner("Analyzing with AI..."):
-        signal, result = predict_signal(SYMBOLS[pair], expiry)
-        if signal is None:
-            st.error(result)
-        else:
-            st.success(f"**Signal: {signal}**\n\n**Confidence:** `{result}%`\n\n**Expiry:** `{expiry}`")
+if st.button("📊 Generate Signal"):
+    with st.spinner("⏳ Analyzing market using AI..."):
+        try:
+            df = load_data(SYMBOLS[pair])
+            X, y = prepare_data(df, EXPIRIES[expiry])
+            X_flat = X.reshape((X.shape[0], -1))
+
+            model = RandomForestClassifier()
+            model.fit(X_flat, y)
+            pred = model.predict_proba([X_flat[-1]])[0][1]
+
+            signal = "CALL 🔼" if pred > 0.5 else "PUT 🔽"
+            confidence = round(pred * 100 if pred > 0.5 else (1 - pred) * 100, 2)
+
+            st.success(f"""
+                ✅ **Signal:** {signal}  
+                📈 **Confidence:** {confidence}%  
+                ⏰ **Expiry:** {expiry}
+            """)
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
